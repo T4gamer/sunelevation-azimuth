@@ -1,0 +1,7 @@
+import requests
+import os
+payload = {"var_longt" : 32.757808 , "var_latit" : "12.679056", "var_I" : 2}
+req = requests.get("https://keisan.casio.com/exec/system/1224682277",params=payload)
+print(req.text)
+
+
