@@ -1,72 +1,80 @@
+#include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 #include <WiFiClient.h>
+#include <Servo.h>
 
-const char* ssid = "Libya_ADSL";
-const char* password = "110337gadban";
+String auth = "xEbrFlpbqoZvihlt2TrwIMU-jPuY2SqV";
 
-//Your Domain name with URL path or IP address with path
-String serverName = "http://192.168.1.106:1880/update-sensor";
+const char *ssid = "rafi3";
+const char *pass = "password1";
+Servo servo;
+Servo servo1;
 
-// the following variables are unsigned longs because the time, measured in
-// milliseconds, will quickly become a bigger number than can be stored in an int.
-unsigned long lastTime = 0;
-// Timer set to 10 minutes (600000)
-//unsigned long timerDelay = 600000;
-// Set timer to 5 seconds (5000)
-unsigned long timerDelay = 5000;
+float get_data_from_blynk(const String& token, int data_stream){
+  float number = 0;
+
+  WiFiClient _client;
+
+  HTTPClient http_client;
+
+
+  String fully_request = "http://blynk.cloud/external/api/get?token=" + token + "&v" + String(data_stream);
+
+  http_client.begin(_client, fully_request.c_str());
+  http_client.addHeader("Content-Type", "text/plain");
+
+
+  long elapsed = millis();  
+  int return_code = http_client.GET();
+  Serial.printf("[ elapsed time in ms = %ld]\n", millis() - elapsed);
+  Serial.printf("[return code %d]\n", return_code);
+
+  if(return_code > 0){
+
+    String payload = http_client.getString();
+    Serial.printf("[Response: %s]\n", payload.c_str());
+
+    if(return_code == HTTP_CODE_OK) {
+      number = payload.toFloat();
+    }
+  } else {
+    number = 0.0;
+  }
+
+  http_client.end();
+
+  return number;
+}
 
 void setup() {
-  Serial.begin(115200); 
+  // put your setup code here, to run once:
+  Serial.begin(115200);
+  servo.attach(2);
+  servo1.attach(4);
 
-  WiFi.begin(ssid, password);
-  Serial.println("Connecting");
-  while(WiFi.status() != WL_CONNECTED) {
-    delay(500);
+  Serial.printf("Connecting to %s\n", ssid);
+  WiFi.begin(ssid, pass);
+  while(WiFi.status() != WL_CONNECTED){
+    delay(100);
     Serial.print(".");
   }
-  Serial.println("");
-  Serial.print("Connected to WiFi network with IP Address: ");
-  Serial.println(WiFi.localIP());
- 
-  Serial.println("Timer set to 5 seconds (timerDelay variable), it will take 5 seconds before publishing the first reading.");
+
+  Serial.printf("\n WiFi connected");
+
+
+  delay(1000);
+  Serial.println("Doing... some requests");
+  float value = get_data_from_blynk("xEbrFlpbqoZvihlt2TrwIMU-jPuY2SqV", 4);
+
 }
 
 void loop() {
-  // Send an HTTP POST request depending on timerDelay
-  if ((millis() - lastTime) > timerDelay) {
-    //Check WiFi connection status
-    if(WiFi.status()== WL_CONNECTED){
-      WiFiClient client;
-      HTTPClient http;
-
-      String serverPath = serverName + "?temperature=24.37";
-      
-      // Your Domain name with URL path or IP address with path
-      http.begin(client, serverPath.c_str());
+  // put your main code here, to run repeatedly:
+  float azm_value = get_data_from_blynk("xEbrFlpbqoZvihlt2TrwIMU-jPuY2SqV", 4);
+  float elev_value = get_data_from_blynk("xEbrFlpbqoZvihlt2TrwIMU-jPuY2SqV", 5);
+  servo.write(azm_value);
+  servo1.write(elev_value);
+  delay(1000);
   
-      // If you need Node-RED/server authentication, insert user and password below
-      //http.setAuthorization("REPLACE_WITH_SERVER_USERNAME", "REPLACE_WITH_SERVER_PASSWORD");
-        
-      // Send HTTP GET request
-      int httpResponseCode = http.GET();
-      
-      if (httpResponseCode>0) {
-        Serial.print("HTTP Response code: ");
-        Serial.println(httpResponseCode);
-        String payload = http.getString();
-        Serial.println(payload);
-      }
-      else {
-        Serial.print("Error code: ");
-        Serial.println(httpResponseCode);
-      }
-      // Free resources
-      http.end();
-    }
-    else {
-      Serial.println("WiFi Disconnected");
-    }
-    lastTime = millis();
-  }
 }
